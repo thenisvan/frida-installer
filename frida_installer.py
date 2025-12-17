@@ -3,20 +3,25 @@ import subprocess
 import requests
 import time
 import os
+import sys
 from bs4 import BeautifulSoup
 from ppadb.client import Client as AdbClient
 import lzma
+from colorama import init, Fore, Style
+
+# Initialize colorama
+init()
 
 # ANSI Colors
-RESET = "\033[0m"
-BLACK = "\033[30m"
-RED = "\033[31m"
-GREEN = "\033[32m"
-YELLOW = "\033[33m"
-BLUE = "\033[34m"
-MAGENTA = "\033[35m"
-CYAN = "\033[36m"
-WHITE = "\033[37m"
+RESET = Style.RESET_ALL
+BLACK = Fore.BLACK
+RED = Fore.RED
+GREEN = Fore.GREEN
+YELLOW = Fore.YELLOW
+BLUE = Fore.BLUE
+MAGENTA = Fore.MAGENTA
+CYAN = Fore.CYAN
+WHITE = Fore.WHITE
 
 
 def print_banner():
@@ -34,14 +39,25 @@ def print_banner():
 def connect_to_device():
     print("[~] Checking if devices are connected via ADB...")
     client = AdbClient(host="127.0.0.1", port=5037)
-    devices = client.devices()
+    try:
+        devices = client.devices()
+    except Exception:
+        print(f"{YELLOW}[!] Could not connect to ADB server. Trying to start it...{RESET}")
+        try:
+            subprocess.run(["adb", "start-server"], check=True, capture_output=True)
+            time.sleep(3)
+            devices = client.devices()
+        except Exception:
+            print(f"{RED}[!] Failed to start ADB server. Please ensure ADB is installed and in your PATH.{RESET}")
+            return None
+
     if len(devices) > 0:
         device = devices[0]
         print(f"{GREEN}[+] Device connected: {device.serial}\n{RESET}")
         return device
     else:
         print(f"{RED}[!] No devices found. Aborting...{RESET}")
-        return
+        return None
     
 def get_frida_latest(device):
     url = "https://github.com/frida/frida/releases/latest"
@@ -107,14 +123,14 @@ def main():
 
                 success_statuses.extend([download_success, install_success])
                 
-                command = ['pip3', 'install', 'frida']
+                command = [sys.executable, '-m', 'pip', 'install', 'frida']
                 print("[~] Installing frida...")
                 output = subprocess.run(command, text=True, capture_output=True)
 
                 if "Requirement already satisfied" in output.stdout:
                     print(f"{YELLOW}[!] frida is already installed. Checking if upgrade is needed...{RESET}")
                     success_statuses.append(True)
-                    command = ['pip3', 'install', 'frida', '--upgrade']
+                    command = [sys.executable, '-m', 'pip', 'install', 'frida', '--upgrade']
                     output = subprocess.run(command, text=True, capture_output=True)
                 
                 if output.returncode != 0:
@@ -126,14 +142,14 @@ def main():
                     print(f"{GREEN}[+] Done. frida is installed\n{RESET}")
                     success_statuses.append(True)
                 
-                command = ['pip3', 'install', 'frida-tools']
+                command = [sys.executable, '-m', 'pip', 'install', 'frida-tools']
                 print("[~] Installing frida-tools...")
                 output = subprocess.run(command, text=True, capture_output=True)
 
                 if "Requirement already satisfied" in output.stdout:
                     print(f"{YELLOW}[!] frida-tools is already installed. Checking if upgrade is needed...{RESET}")
                     success_statuses.append(True)
-                    command = ['pip3', 'install', 'frida-tools', '--upgrade']
+                    command = [sys.executable, '-m', 'pip', 'install', 'frida-tools', '--upgrade']
                     output = subprocess.run(command, text=True, capture_output=True)
                 
                 if output.returncode != 0:
